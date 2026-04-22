@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # --- 服务端节点 ---
+  server:
+    build: 
+      context: ./server
+    ports:
+      - "50051:50051"  # 映射到宿主机，方便你用本地脚本测试（可选）
+    environment:
+      - MIN_CLIENTS=10 # 魔法指令：告诉服务器至少需要 10 个客户端才开始聚合！
+    networks:
+      - fl_network
+
+  # --- 客户端节点 ---
+  client:
+    build: 
+      context: ./client
+    environment:
+      # 告诉客户端服务器的地址。注意：这里直接使用服务名 'server'
+      # Docker 的内置 DNS 会自动将 'server' 解析为服务端的容器 IP
+      - SERVER_ADDR=server:50051 
+      - TOTAL_ROUNDS=50
+    depends_on:
+      - server         # 确保服务器先启动
+    deploy:
+      replicas: 10      # 魔法指令：一键启动 3 个完全相同的客户端容器！
+    networks:
+      - fl_network
+
+# 定义一个专属的虚拟网络
+networks:
+  fl_network:
+    driver: bridge
+
+
+
+
+#fl_sum.proto
+
+syntax = "proto3";
+
+package fl_sum;
+
+// 客户端上传的数据：包含 ID、本地计算的数值、以及当前的轮次
+message LocalSum {
+    string client_id = 1;
+    int32 local_value = 2;
+    int32 round_number = 3;
+}
+
+// 服务器的简易回复
+message ServerResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// 客户端请求全局总和时的参数
+message GlobalSumRequest {
+    int32 round_number = 1;
+}
+
+// 服务器返回的全局总和
+message GlobalSumResponse {
+    int32 global_value = 1;
+    bool is_ready = 2; // 如果聚合还没完成，可以告诉客户端再等等
+}
+
+// 定义联邦学习求和服务
+service FederatedSum {
+    // 客户端调用此方法上传本地求和结果
+    rpc UploadLocalSum (LocalSum) returns (ServerResponse);
+    
+    // 客户端调用此方法获取当前轮次的全局聚合结果
+    rpc GetGlobalSum (GlobalSumRequest) returns (GlobalSumResponse);
+}

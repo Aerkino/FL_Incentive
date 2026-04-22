@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  server:
+    build: 
+      context: .                  # 【关键】把上帝视角提升到根目录
+      dockerfile: server/Dockerfile # 指明 Dockerfile 的具体位置
+    ports:
+      - "50051:50051"
+    environment:
+      - MIN_CLIENTS=5 # 服务器需要等待的最少客户端数量
+    volumes:
+      - ./dist_data/server:/app/data:ro
+    networks:
+      - fl_net
+
+  client_0:
+    build: 
+      context: .                  # 同样提升到根目录
+      dockerfile: client/Dockerfile # 指明 Dockerfile 的具体位置
+    environment:
+      - CLIENT_ID=Client_0
+      - SERVER_ADDR=server:50051
+      - TOTAL_ROUNDS=10   # 统一下发总轮次
+      - LOCAL_EPOCHS=1   # 统一下发本地 Epoch
+    volumes:
+      - ./dist_data/client_0:/app/data:ro
+      - ./dist_data/server:/app/global_test:ro  
+    depends_on:
+      - server
+    networks:
+      - fl_net
+
+  client_1:
+    build: 
+      context: .                  # 同样提升到根目录
+      dockerfile: client/Dockerfile # 指明 Dockerfile 的具体位置
+    environment:
+      - CLIENT_ID=Client_1
+      - SERVER_ADDR=server:50051
+      - TOTAL_ROUNDS=10   # 统一下发总轮次
+      - LOCAL_EPOCHS=1   # 统一下发本地 Epoch
+    volumes:
+      - ./dist_data/client_1:/app/data:ro
+      - ./dist_data/server:/app/global_test:ro  
+    depends_on:
+      - server
+    networks:
+      - fl_net
+
+  client_2:
+    build: 
+      context: .                  # 同样提升到根目录
+      dockerfile: client/Dockerfile # 指明 Dockerfile 的具体位置
+    environment:
+      - CLIENT_ID=Client_2
+      - SERVER_ADDR=server:50051
+      - TOTAL_ROUNDS=10   # 统一下发总轮次
+      - LOCAL_EPOCHS=1   # 统一下发本地 Epoch
+    volumes:
+      - ./dist_data/client_2:/app/data:ro
+      - ./dist_data/server:/app/global_test:ro  
+    depends_on:
+      - server
+    networks:
+      - fl_net
+
+  client_3:
+    build: 
+      context: .                  # 同样提升到根目录
+      dockerfile: client/Dockerfile # 指明 Dockerfile 的具体位置
+    environment:
+      - CLIENT_ID=Client_3
+      - SERVER_ADDR=server:50051
+      - TOTAL_ROUNDS=10   # 统一下发总轮次
+      - LOCAL_EPOCHS=1   # 统一下发本地 Epoch
+    volumes:
+      - ./dist_data/client_3:/app/data:ro
+      - ./dist_data/server:/app/global_test:ro  
+    depends_on:
+      - server
+    networks:
+      - fl_net
+
+  client_4:
+    build: 
+      context: .                  # 同样提升到根目录
+      dockerfile: client/Dockerfile # 指明 Dockerfile 的具体位置
+    environment:
+      - CLIENT_ID=Client_4
+      - SERVER_ADDR=server:50051
+      - TOTAL_ROUNDS=10   # 统一下发总轮次
+      - LOCAL_EPOCHS=1   # 统一下发本地 Epoch
+    volumes:
+      - ./dist_data/client_4:/app/data:ro
+      - ./dist_data/server:/app/global_test:ro  
+    depends_on:
+      - server
+    networks:
+      - fl_net
+
+networks:
+  fl_net:
+    driver: bridge
