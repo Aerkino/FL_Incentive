@@ -7,6 +7,7 @@ message LocalModel {
     bytes model_weights = 2; // 【关键】用于存放 PyTorch 序列化后的 state_dict
     int32 num_samples = 3;   // 【关键】用于 FedAvg 的加权计算
     int32 round_number = 4;
+    repeated float rp_vector = 5;
 }
 
 message ServerResponse {

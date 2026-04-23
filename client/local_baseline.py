@@ -80,7 +80,7 @@ def run_local_baseline(client_id, data_path, epochs=5, val_ratio=0.2):
     # 终极审判：在全局测试集上评估这个“井底之蛙”模型
     # ==========================================
     
-    global_test_path = "/app/global_test/test_data.pt" # 预设的挂载点
+    global_test_path = "./dist_data/server/test_data.pt" # 预设的挂载点
     
     if not os.path.exists(global_test_path):
         print(f"⚠️ 警告：未检测到全局测试集挂载点 {global_test_path}")
@@ -109,15 +109,20 @@ def run_local_baseline(client_id, data_path, epochs=5, val_ratio=0.2):
     return model
 
 if __name__ == "__main__":
+
+    current_client_id = "client_3"
     # 【核心修改】适配 Docker 容器环境
     # 在容器内，无论哪个客户端，它的专属数据都被映射到了这个固定路径
-    container_data_path = "/app/data/local_data.pt"
+    container_data_path = f"./dist_data/{current_client_id}/local_data.pt"
     
     # 获取当前容器的身份标识
-    current_client_id = os.environ.get("CLIENT_ID", "Unknown_Client")
-    
+        
     if os.path.exists(container_data_path):
-        run_local_baseline(current_client_id, container_data_path, epochs=5)
+        run_local_baseline(current_client_id, container_data_path, epochs=50)
     else:
         print(f"❌ 找不到数据集文件：{container_data_path}")
         print("请检查 docker-compose.yml 中的 volumes 挂载是否正确。")
+
+
+
+

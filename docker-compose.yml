@@ -30,6 +30,13 @@ services:
       - server
     networks:
       - fl_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # 如果你想限制使用的显卡数量，可以把 all 改成 1
+              capabilities: [gpu]
 
   client_1:
     build: 
@@ -47,6 +54,13 @@ services:
       - server
     networks:
       - fl_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # 如果你想限制使用的显卡数量，可以把 all 改成 1
+              capabilities: [gpu]
 
   client_2:
     build: 
@@ -64,6 +78,13 @@ services:
       - server
     networks:
       - fl_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # 如果你想限制使用的显卡数量，可以把 all 改成 1
+              capabilities: [gpu]
 
   client_3:
     build: 
@@ -81,6 +102,13 @@ services:
       - server
     networks:
       - fl_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # 如果你想限制使用的显卡数量，可以把 all 改成 1
+              capabilities: [gpu]
 
   client_4:
     build: 
@@ -98,6 +126,13 @@ services:
       - server
     networks:
       - fl_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # 如果你想限制使用的显卡数量，可以把 all 改成 1
+              capabilities: [gpu]
 
 networks:
   fl_net:

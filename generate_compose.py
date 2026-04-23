@@ -38,6 +38,13 @@ services:
       - server
     networks:
       - fl_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # 如果你想限制使用的显卡数量，可以把 all 改成 1
+              capabilities: [gpu]
 """
 
     # 结尾网络配置

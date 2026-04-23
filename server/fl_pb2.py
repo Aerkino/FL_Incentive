@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08\x66l.proto\x12\x02\x66l\"a\n\nLocalModel\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x15\n\rmodel_weights\x18\x02 \x01(\x0c\x12\x13\n\x0bnum_samples\x18\x03 \x01(\x05\x12\x14\n\x0cround_number\x18\x04 \x01(\x05\"2\n\x0eServerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"*\n\x12GlobalModelRequest\x12\x14\n\x0cround_number\x18\x01 \x01(\x05\"?\n\x13GlobalModelResponse\x12\x16\n\x0eglobal_weights\x18\x01 \x01(\x0c\x12\x10\n\x08is_ready\x18\x02 \x01(\x08\x32\x8e\x01\n\x11\x46\x65\x64\x65ratedLearning\x12\x36\n\x10UploadLocalModel\x12\x0e.fl.LocalModel\x1a\x12.fl.ServerResponse\x12\x41\n\x0eGetGlobalModel\x12\x16.fl.GlobalModelRequest\x1a\x17.fl.GlobalModelResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x08\x66l.proto\x12\x02\x66l\"t\n\nLocalModel\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x15\n\rmodel_weights\x18\x02 \x01(\x0c\x12\x13\n\x0bnum_samples\x18\x03 \x01(\x05\x12\x14\n\x0cround_number\x18\x04 \x01(\x05\x12\x11\n\trp_vector\x18\x05 \x03(\x02\"2\n\x0eServerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"*\n\x12GlobalModelRequest\x12\x14\n\x0cround_number\x18\x01 \x01(\x05\"?\n\x13GlobalModelResponse\x12\x16\n\x0eglobal_weights\x18\x01 \x01(\x0c\x12\x10\n\x08is_ready\x18\x02 \x01(\x08\x32\x8e\x01\n\x11\x46\x65\x64\x65ratedLearning\x12\x36\n\x10UploadLocalModel\x12\x0e.fl.LocalModel\x1a\x12.fl.ServerResponse\x12\x41\n\x0eGetGlobalModel\x12\x16.fl.GlobalModelRequest\x1a\x17.fl.GlobalModelResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,13 +32,13 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'fl_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_LOCALMODEL']._serialized_start=16
-  _globals['_LOCALMODEL']._serialized_end=113
-  _globals['_SERVERRESPONSE']._serialized_start=115
-  _globals['_SERVERRESPONSE']._serialized_end=165
-  _globals['_GLOBALMODELREQUEST']._serialized_start=167
-  _globals['_GLOBALMODELREQUEST']._serialized_end=209
-  _globals['_GLOBALMODELRESPONSE']._serialized_start=211
-  _globals['_GLOBALMODELRESPONSE']._serialized_end=274
-  _globals['_FEDERATEDLEARNING']._serialized_start=277
-  _globals['_FEDERATEDLEARNING']._serialized_end=419
+  _globals['_LOCALMODEL']._serialized_end=132
+  _globals['_SERVERRESPONSE']._serialized_start=134
+  _globals['_SERVERRESPONSE']._serialized_end=184
+  _globals['_GLOBALMODELREQUEST']._serialized_start=186
+  _globals['_GLOBALMODELREQUEST']._serialized_end=228
+  _globals['_GLOBALMODELRESPONSE']._serialized_start=230
+  _globals['_GLOBALMODELRESPONSE']._serialized_end=293
+  _globals['_FEDERATEDLEARNING']._serialized_start=296
+  _globals['_FEDERATEDLEARNING']._serialized_end=438
 # @@protoc_insertion_point(module_scope)

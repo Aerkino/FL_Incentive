@@ -39,13 +39,15 @@ class FederatedLearningServicer(fl_pb2_grpc.FederatedLearningServicer):
         self.received_data = {}  
         self.lock = threading.Lock()
         self.is_aggregating = False 
+        self.received_rp_vectors = {} # 存储本轮所有节点的 RP 向量
 
         # ================= 联邦学习专属初始化 =================
         logging.info("初始化全局模型...")
         self.global_model = SimpleCNN()
         
         # 尝试加载全局测试集（由 docker-compose 的 volume 挂载）
-        test_data_path = "/app/data/test_data.pt"
+        # test_data_path = "/app/data/test_data.pt"
+        test_data_path = "./dist_data/server/test_data.pt"
         if os.path.exists(test_data_path):
             self.test_dataset = torch.load(test_data_path, weights_only=False)
             self.test_loader = DataLoader(self.test_dataset, batch_size=1000, shuffle=False)
@@ -73,7 +75,7 @@ class FederatedLearningServicer(fl_pb2_grpc.FederatedLearningServicer):
                     success=False, 
                     message="本轮已收到过您的数据，请勿重复提交"
                 )
-
+            self.received_rp_vectors[request.client_id] = torch.tensor(request.rp_vector)
             # 3. 写入数据 (保存字节流和客户端样本数)
             self.received_data[request.client_id] = {
                 'weights_bytes': request.model_weights,
@@ -112,57 +114,154 @@ class FederatedLearningServicer(fl_pb2_grpc.FederatedLearningServicer):
         else:
             return fl_pb2.GlobalModelResponse(is_ready=False)
 
+    # def _aggregate(self):
+    #     """执行 FedAvg 联邦平均聚合逻辑"""
+    #     # --- 步骤 1：加锁获取数据快照并清理现场 ---
+    #     with self.lock:
+    #         data_to_compute = self.received_data.copy()
+    #         current_round_processing = self.current_round
+    #         self.received_data = {}
+    #     # ----------------------------------------
+
+    #     logging.info(f"--- 正在对轮次 {current_round_processing} 的 {len(data_to_compute)} 个节点模型执行 FedAvg ---")
+        
+    #     # --- 步骤 2：无锁状态下执行重度计算 (FedAvg) ---
+    #     total_samples = sum([data['num_samples'] for data in data_to_compute.values()])
+    #     global_state_dict = self.global_model.state_dict()
+        
+    #     # 将全局模型的临时字典清零，准备累加
+    #     for key in global_state_dict.keys():
+    #         global_state_dict[key] = torch.zeros_like(global_state_dict[key])
+            
+    #     # 遍历所有客户端，按数据量加权累加参数
+    #     for client_id, data in data_to_compute.items():
+    #         weight = data['num_samples'] / total_samples
+    #         client_weights = deserialize_weights(data['weights_bytes'])
+            
+    #         for key in global_state_dict.keys():
+    #             global_state_dict[key] += client_weights[key] * weight
+
+    #     # 将聚合后的参数加载回真正的全局模型
+    #     self.global_model.load_state_dict(global_state_dict)
+        
+    #     # 聚合完成后，立即进行全局测试集评估
+    #     if self.test_loader is not None:
+    #         self._evaluate()
+    #     # ----------------------------------------
+        
+    #     # --- 步骤 3：加锁更新全局状态 ---
+    #     with self.lock:
+    #         self.current_round += 1
+    #         self.is_aggregating = False
+    #     # ----------------------------------------
+        
+    #     logging.info(f"--- 轮次 {current_round_processing} 聚合彻底完成！已开启第 {self.current_round} 轮 ---")
+
+
     def _aggregate(self):
-        """执行 FedAvg 联邦平均聚合逻辑"""
-        # --- 步骤 1：加锁获取数据快照并清理现场 ---
+        self._compute_distances_and_scores()
         with self.lock:
             data_to_compute = self.received_data.copy()
             current_round_processing = self.current_round
             self.received_data = {}
-        # ----------------------------------------
 
-        logging.info(f"--- 正在对轮次 {current_round_processing} 的 {len(data_to_compute)} 个节点模型执行 FedAvg ---")
+        logging.info(f"--- 正在对轮次 {current_round_processing} 的 {len(data_to_compute)} 个节点模型执行绝对无损 SMC 聚合 ---")
         
-        # --- 步骤 2：无锁状态下执行重度计算 (FedAvg) ---
-        total_samples = sum([data['num_samples'] for data in data_to_compute.values()])
         global_state_dict = self.global_model.state_dict()
         
-        # 将全局模型的临时字典清零，准备累加
+        # 🌟 修复 3：创建一个纯 Int64 的累加器字典，防止任何累加过程中的精度截断
+        accumulator = {}
         for key in global_state_dict.keys():
-            global_state_dict[key] = torch.zeros_like(global_state_dict[key])
+            accumulator[key] = torch.zeros_like(global_state_dict[key], dtype=torch.int64)
             
-        # 遍历所有客户端，按数据量加权累加参数
+        # 1. 绝对无损相加
         for client_id, data in data_to_compute.items():
-            weight = data['num_samples'] / total_samples
             client_weights = deserialize_weights(data['weights_bytes'])
-            
             for key in global_state_dict.keys():
-                global_state_dict[key] += client_weights[key] * weight
+                # 此时 client_weights 里全都是 int64 乱码
+                accumulator[key] += client_weights[key]
 
-        # 将聚合后的参数加载回真正的全局模型
+        # 🌟 修复 4：抵消完毕后，利用 Float64 (double) 这种最高精度进行除法，并退回原始精度
+        num_clients = len(data_to_compute)
+        quantize_factor = 1e6 
+        
+        for key in global_state_dict.keys():
+            # 先转成 float64 保证除法精度
+            pure_sum_float64 = accumulator[key].to(torch.float64)
+            # 除以节点数和量化因子
+            avg_float = pure_sum_float64 / (float(num_clients) * quantize_factor)
+            # 还原为模型原本的精度 (通常是 Float32)，塞回模型
+            global_state_dict[key] = avg_float.to(global_state_dict[key].dtype)
+
         self.global_model.load_state_dict(global_state_dict)
         
-        # 聚合完成后，立即进行全局测试集评估
         if self.test_loader is not None:
             self._evaluate()
-        # ----------------------------------------
-        
-        # --- 步骤 3：加锁更新全局状态 ---
+            
         with self.lock:
             self.current_round += 1
             self.is_aggregating = False
-        # ----------------------------------------
         
         logging.info(f"--- 轮次 {current_round_processing} 聚合彻底完成！已开启第 {self.current_round} 轮 ---")
+    def _compute_distances_and_scores(self):
+        """
+        计算节点间的欧氏距离，识别潜在的投毒者
+        """
+        client_ids = list(self.received_rp_vectors.keys())
+        n = len(client_ids)
+        
+        logging.info("--- [随机投影盲审] 正在计算跨节点模型距离 ---")
+        
+        # 计算两两之间的欧氏距离
+        for i in range(n):
+            d_sum = 0
+            for j in range(n):
+                if i == j: continue
+                dist = torch.norm(self.received_rp_vectors[client_ids[i]] - 
+                                  self.received_rp_vectors[client_ids[j]], p=2)
+                d_sum += dist.item()
+            
+            # 这里的 d_sum 越小，说明该模型与大家越接近（越诚实）
+            avg_dist = d_sum / (n - 1)
+            # 映射为评分 s_i = 1 / (d_i + epsilon)
+            score = 1.0 / (avg_dist + 1e-6)
+            logging.info(f" > 节点 {client_ids[i]} | 平均投影距离: {avg_dist:.4f} | 质量评分: {score:.4f}")
+
+            
+    # def _evaluate(self):
+    #     """在全局测试集上评估当前模型精度"""
+    #     self.global_model.eval()
+    #     test_loss = 0
+    #     correct = 0
+        
+    #     with torch.no_grad():
+    #         for data, target in self.test_loader:
+    #             output = self.global_model(data)
+    #             test_loss += torch.nn.functional.nll_loss(output, target, reduction='sum').item()
+    #             pred = output.argmax(dim=1, keepdim=True)
+    #             correct += pred.eq(target.view_as(pred)).sum().item()
+
+    #     test_loss /= len(self.test_loader.dataset)
+    #     accuracy = 100. * correct / len(self.test_loader.dataset)
+    #     logging.info(f"⭐ [全局评估] 测试集 Loss: {test_loss:.4f} | 准确率: {correct}/{len(self.test_loader.dataset)} ({accuracy:.2f}%) ⭐")
 
     def _evaluate(self):
-        """在全局测试集上评估当前模型精度"""
+        """在全局测试集上评估当前模型精度 (GPU 加速版)"""
+        # 1. 自动嗅探设备：有显卡就用显卡，没有就退回 CPU
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # 2. 将全局模型搬到显卡上
+        self.global_model = self.global_model.to(device)
         self.global_model.eval()
+        
         test_loss = 0
         correct = 0
         
         with torch.no_grad():
             for data, target in self.test_loader:
+                # 3. 【核心修改】将这一批次的数据和标签也搬到显卡上
+                data, target = data.to(device), target.to(device)
+                
                 output = self.global_model(data)
                 test_loss += torch.nn.functional.nll_loss(output, target, reduction='sum').item()
                 pred = output.argmax(dim=1, keepdim=True)
@@ -170,7 +269,13 @@ class FederatedLearningServicer(fl_pb2_grpc.FederatedLearningServicer):
 
         test_loss /= len(self.test_loader.dataset)
         accuracy = 100. * correct / len(self.test_loader.dataset)
+        
+        # 4. 【防坑关键】评估完成后，务必把模型搬回 CPU
+        # 因为后续 GetGlobalModel 需要对 state_dict 进行内存序列化，留在显卡上极易引发张量跨设备报错
+        self.global_model = self.global_model.cpu()
+        
         logging.info(f"⭐ [全局评估] 测试集 Loss: {test_loss:.4f} | 准确率: {correct}/{len(self.test_loader.dataset)} ({accuracy:.2f}%) ⭐")
+
 
 
 def serve():
@@ -184,3 +289,4 @@ def serve():
 
 if __name__ == '__main__':
     serve()
+
